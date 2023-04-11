@@ -81,20 +81,3 @@ class CenterLoss(nn.Module):
         loss = dist.clamp(min=1e-12, max=1e+12).sum() / batch_size
 
         return loss
-
-if __name__ == "__main__":
-    print(__name__)
-    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-    print("device: ", device)
-    input_s = torch.randn(64, 1, 32, 8064).to(device)
-    input_t = torch.randn(64, 1, 32, 8064).to(device)
-    output = torch.randn(64,2)
-    dis = Discriminator(15960).to(device)
-    fe = FE(32).to(device)
-    classifier = Classifier().to(device)
-    feat_s = fe(input_s)
-    feat_t = fe(input_t)
-    pred_s = classifier(feat_s)
-    pred_t = classifier(feat_t)
-    print(pred_s.shape)
-    #criterion = nn.CrossEntropyLoss(pred_s, output)
