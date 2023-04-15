@@ -1,21 +1,16 @@
 #!/bin/bash
-
 # python -u main.py -e=500 -p=50 -b=64 -l=0.1 -m=1 -n=5 -c=0.5 -k=5 -t=${test} > ./log/log_size_${test}_5fold.log
 
-for n_critics in 5 10
+for mu in 0.01 0.1 1 10
 do
-    for center in 0.1 0.5 1
+    for test in 640 480 320 160
     do
-        for mu in 0.01 0.1 1 10
-        do
-            for lambda in 0.001 0.01 0.1 1 10
-            do
-                for test in 640 480 320 160
-                do
-                    mkdir output/result_cv_5fold_${lambda}_${mu}_${center}_${n_critics}_${test}
-                    python -u main.py -e=500 -p=50 -b=64 -l=${lambda} -m=${mu} -n=${n_critics} -c=${center} -k=5 -t=${test} > ./output/result_cv_5fold_${lambda}_${mu}_${center}_${n_critics}_${test}/train_val_test.log
-                done
-            done
-        done
+        if [-f output/result_cv_5fold_10_${mu}_${center}_5_${test}/result_table.csv]; then
+            echo "Already Complete"
+        else 
+            mkdir output/result_cv_5fold_${lambda}_${mu}_${center}_${n_critics}_${test}
+            echo "Run Python File main.py -e=500 -p=50 -b=64 -l=10 -m=${mu} -n=5 -k=5 -t=${test}"
+            python -u main.py -e=500 -p=50 -b=64 -l=10 -m=${mu} -n=5 -k=5 -t=${test} > ./output/result_cv_5fold_${mu}_${test}/train_val_test.log
+        fi
     done
 done

@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import matplotlib.pyplot as plt
 import numpy as np
-from model import FE, Discriminator, Classifier, Wasserstein_Loss, Grad_Loss, CenterLoss
+from model import FE, Discriminator, Classifier, Wasserstein_Loss, CenterLoss
 from sklearn.metrics import confusion_matrix, classification_report, accuracy_score, precision_score, recall_score, average_precision_score, f1_score, roc_auc_score, roc_curve, ConfusionMatrixDisplay, auc, RocCurveDisplay
 import torch.optim as optim
 from sklearn.model_selection import train_test_split
@@ -24,7 +24,7 @@ def make_dataloader(x_source, y_source, x_target, y_target, x_val, y_val, x_test
     test_dataloader = DataLoader(test_dataset, batch_size, shuffle=True)
     return source_dataloader, target_dataloader, val_dataloader, test_dataloader
 
-def train_val(source_dataloader, target_dataloader, val_dataloader, label, nb_epochs, hyper_lambda, hyper_mu, hyper_n, hyper_cent, patience, output_dir, fold=0) :
+def train_val(source_dataloader, target_dataloader, val_dataloader, label, nb_epochs, hyper_lambda, hyper_mu, hyper_n, patience, output_dir, fold=0) :
     print("-"*50)
     print(f"{label} label train and valiation")
     # cuda
@@ -41,7 +41,7 @@ def train_val(source_dataloader, target_dataloader, val_dataloader, label, nb_ep
     optimizer_dis = optim.Adam(dis.parameters(),lr=0.0001,betas=(0,0.9))
     optimizer_fe = optim.Adam(fe.parameters(),lr=0.0001, betas=(0,0.9))
     optimizer_cls = optim.Adam(classifier.parameters(),lr=0.0001, betas=(0,0.9))
-    optimizer_centerloss = optim.SGD(centerloss.parameters(), lr=0.0001)
+    optimizer_centerloss = optim.SGD(centerloss.parameters(), lr=0.5)
 
     #cls_loss
     cls_loss = nn.CrossEntropyLoss().to(device)
@@ -80,6 +80,7 @@ def train_val(source_dataloader, target_dataloader, val_dataloader, label, nb_ep
         fe.train()
         dis.train()
         classifier.train()
+        centerloss.train()
         # batch
         for i, (target, source) in enumerate(zip(target_dataloader, source_dataloader)):
             temp += 1.0
@@ -96,23 +97,28 @@ def train_val(source_dataloader, target_dataloader, val_dataloader, label, nb_ep
                 p.requires_grad = True
             for p in classifier.parameters() :
                 p.requires_grad = False
+            for p in centerloss.parameters() :
+                p.requires_grad = False
             
             for k in range(hyper_n) :
                 optimizer_dis.zero_grad()
-                wd_grad_loss = 0
+                
                 feat_t = fe(x_target)
                 feat_s = fe(x_source)
-                pred_t = classifier(feat_t)
-                pred_s = classifier(feat_s)
-                for j in range(feat_s.size(0)) :
-                    epsil = torch.rand(1).item()
-                    feat = epsil*feat_s[j,:]+(1-epsil)*feat_t[j,:]
-                    dc_t = dis(feat_t)
-                    dc_s = dis(feat_s)
-                    wd_loss = Wasserstein_Loss(dc_s, dc_t)
-                    grad_loss = Grad_Loss(feat, dis, device)
-                    wd_grad_loss = wd_grad_loss - (wd_loss-hyper_lambda*grad_loss)
-                wd_grad_loss = wd_grad_loss / feat_s.size(0)
+                
+                dc_t = dis(feat_t)
+                dc_s = dis(feat_s)
+                
+                epsil = torch.rand(1).item()
+                feat = epsil*feat_s+(1-epsil)*feat_t
+                feat.requires_grad_()
+                dc = dis(feat)
+                
+                wd_loss = Wasserstein_Loss(dc_s, dc_t)
+                grad = torch.autograd.grad(outputs=dc, inputs=feat, grad_outputs=torch.ones(dc.size()).cuda(), create_graph=True, retain_graph=True)[0]
+                grad_norm = torch.sqrt(torch.sum(grad**2, dim=1)+1e-12)
+                grad_pt = ((grad_norm-1)**2).mean()
+                wd_grad_loss = -wd_loss + hyper_lambda*grad_pt
                 wd_grad_loss.backward()
                 optimizer_dis.step()
 
@@ -153,8 +159,10 @@ def train_val(source_dataloader, target_dataloader, val_dataloader, label, nb_ep
             wd_loss = Wasserstein_Loss(dc_s, dc_t)
             cls_loss_source = cls_loss(pred_s, y_source-1)
             center_loss = centerloss(feat_t, y_target)
-            fe_loss = cls_loss_source + hyper_mu*wd_loss + hyper_cent*center_loss
+            fe_loss = cls_loss_source + hyper_mu*wd_loss + 0.5*center_loss
             fe_loss.backward()
+            for p in centerloss.parameters() :
+                p.grad.data *= (1//0.5)
             optimizer_fe.step()
             optimizer_centerloss.step()
             
@@ -166,16 +174,15 @@ def train_val(source_dataloader, target_dataloader, val_dataloader, label, nb_ep
             # Temp_Loss
             wd_loss = Wasserstein_Loss(dc_s, dc_t).detach().cpu()
             cls_loss_source = cls_loss(pred_s, y_source-1).detach().cpu()
-            center_loss = centerloss(feat_t, y_target-1).detach().cpu()
-            g_loss = cls_loss_source + hyper_mu*(wd_loss - hyper_lambda*grad_loss) + hyper_cent*center_loss
+        
+            center_loss = centerloss(feat_t, y_target).detach().cpu()
+            g_loss = cls_loss_source + hyper_mu*wd_loss + 0.5*center_loss
             
             temp_wdloss = temp_wdloss + wd_loss
             temp_clsloss = temp_clsloss+ cls_loss_source
             temp_centloss = temp_centloss+ center_loss
             temp_gloss = temp_gloss+ g_loss
 
-            temp_accuracy_t += ((torch.argmax(pred_t,1)+1)== y_target).to(torch.float).mean().detach().cpu()
-            temp_accuracy_s += ((torch.argmax(pred_s,1)+1)== y_source).to(torch.float).mean().detach().cpu()
             temp_accuracy_t += ((torch.argmax(pred_t,1)+1)== y_target).to(torch.float).mean().detach().cpu()
             temp_accuracy_s += ((torch.argmax(pred_s,1)+1)== y_source).to(torch.float).mean().detach().cpu()
         

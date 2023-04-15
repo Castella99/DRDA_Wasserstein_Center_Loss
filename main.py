@@ -14,11 +14,10 @@ parser = argparse.ArgumentParser()
 parser.add_argument("-e", "--epoch", type=int, default=1000)
 parser.add_argument("-p", "--patience", type=int, default=50)
 parser.add_argument("-b", "--batch", type=int, default=64)
-parser.add_argument("-l", "--Lambda", type=float)
+parser.add_argument("-l", "--Lambda", type=float, default=10)
 parser.add_argument("-m", "--Mu", type=float)
-parser.add_argument("-n", "--n", type=int)
-parser.add_argument("-c", "--center", type=float)
-parser.add_argument("-k", "--k_fold", type=int, default=3)
+parser.add_argument("-n", "--n", type=int, default=5)
+parser.add_argument("-k", "--k_fold", type=int, default=5)
 parser.add_argument("-t", "--test", type=int)
 
 args = parser.parse_args()
@@ -31,7 +30,6 @@ print("Batch size :", args.batch)
 print("Lambda :", args.Lambda)
 print("Mu :", args.Mu)
 print("N :", args.n)
-print("Center :", args.center)
 print("Fold :", args.k_fold)
 print("Test Size :", args.test)
 
@@ -41,12 +39,11 @@ batch_size = args.batch
 hyper_lambda = args.Lambda
 hyper_mu = args.Mu
 n_critics = args.n
-hyper_cent = args.center
 k_fold = args.k_fold
 test_size = args.test
 
 os.getcwd()
-output_dir = f"./output/result_cv_5fold_{hyper_lambda}_{hyper_mu}_{hyper_cent}_{n_critics}_{test_size}"
+output_dir = f"./output/result_cv_5fold_{hyper_mu}_{test_size}"
 try :
     os.mkdir(output_dir+"/loss")
     os.mkdir(output_dir+"/cm")
@@ -56,7 +53,7 @@ finally :
     pass
 
 # path
-path = r'/shared/home/affctiv/DEAP/data_preprocessed_matlab/'  # 경로는 저장 파일 경로
+path = r'./../data_preprocessed_matlab/'  # 경로는 저장 파일 경로
 file_list = os.listdir(path)
 
 print("-"*50)
@@ -134,7 +131,7 @@ for train_index, test_index in kf.split(x_train, y_train) :
     x_val, y_val = x_train[test_index], y_train[test_index]
 
     source_VAL, target_VAL, val_VAL, test_VAL = make_dataloader(x_source, y_source, x_target, y_target, x_val, y_val, x_test, y_test, batch_size)
-    fe_VAL, dis_VAL, cls_VAL = train_val(source_VAL, target_VAL, val_VAL, 'VALENCE', epoch, hyper_lambda, hyper_mu, n_critics, hyper_cent, patience, output_dir, fold=i)
+    fe_VAL, dis_VAL, cls_VAL = train_val(source_VAL, target_VAL, val_VAL, 'VALENCE', epoch, hyper_lambda, hyper_mu, n_critics, patience, output_dir, fold=i)
     acc, pre, rec, f1, roauc = test_model(fe_VAL, cls_VAL, test_VAL, 'VALENCE', output_dir, i)
     
     acc_VAL.append(acc)
@@ -180,7 +177,7 @@ for train_index, test_index in kf.split(x_train, y_train) :
     x_val, y_val = x_train[test_index], y_train[test_index]
 
     source_ARO, target_ARO, val_ARO, test_ARO = make_dataloader(x_source, y_source, x_target, y_target, x_val, y_val, x_test, y_test, batch_size)
-    fe_ARO, dis_ARO, cls_ARO = train_val(source_ARO, target_ARO, val_ARO, 'AROUSAL', epoch, hyper_lambda, hyper_mu, n_critics, hyper_cent, patience, output_dir, fold=i)
+    fe_ARO, dis_ARO, cls_ARO = train_val(source_ARO, target_ARO, val_ARO, 'AROUSAL', epoch, hyper_lambda, hyper_mu, n_critics, patience, output_dir, fold=i)
     acc, pre, rec, f1, roauc = test_model(fe_ARO, cls_ARO, test_ARO, 'AROUSAL', output_dir, i)
     
     acc_ARO.append(acc)

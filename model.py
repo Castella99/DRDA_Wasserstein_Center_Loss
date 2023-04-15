@@ -19,12 +19,13 @@ class Discriminator(nn.Module):
         super().__init__()
         self.dis = nn.Sequential(
             nn.Linear(input_size, 64),
-            nn.LeakyReLU(),
+            nn.ReLU(),
             nn.Linear(64, 32),
-            nn.LeakyReLU(),
+            nn.ReLU(),
             nn.Linear(32, 16),
-            nn.LeakyReLU(),
+            nn.ReLU(),
             nn.Linear(16,1),
+            nn.Sigmoid()
         )
     
     def forward(self, x):
@@ -48,18 +49,11 @@ class Classifier(nn.Module) :
 def Wasserstein_Loss(dc_s, dc_t) :
     return torch.mean(dc_s) - torch.mean(dc_t)
 
-def Grad_Loss(feat, dis, device) :
-    feat_ = feat.clone().detach().to(device).requires_grad_(True)
-    output = dis(feat_)
-    grad = torch.autograd.grad(output, feat_, torch.ones(1).to(device))[0]
-    return torch.square(grad.norm()-1)
-
 class CenterLoss(nn.Module):
-    def __init__(self, feat_dim, num_classes, lambda_c=1.0):
+    def __init__(self, feat_dim, num_classes):
         super(CenterLoss, self).__init__()
         self.feat_dim = feat_dim
         self.num_classes = num_classes
-        self.lambda_c = lambda_c
         self.centers = nn.Parameter(torch.randn(self.num_classes, self.feat_dim).cuda())
             
     #num_classes (int): number of classes.
@@ -71,7 +65,6 @@ class CenterLoss(nn.Module):
         distmat = torch.pow(x, 2).sum(dim=1, keepdim=True).expand(batch_size, self.num_classes) + \
                   torch.pow(self.centers, 2).sum(dim=1, keepdim=True).expand(self.num_classes, batch_size).t()
         distmat = torch.addmm(distmat, x, self.centers.t(), beta=1, alpha=-2)
-
         classes = torch.arange(self.num_classes).long()
         classes = classes.cuda()
         labels = labels.unsqueeze(1).expand(batch_size, self.num_classes)
@@ -81,3 +74,32 @@ class CenterLoss(nn.Module):
         loss = dist.clamp(min=1e-12, max=1e+12).sum() / batch_size
 
         return loss
+    
+if __name__ == '__main__' :
+    '''
+    fe = FE().cuda()
+    dis = Discriminator().cuda()
+    optim_dis = torch.optim.Adam(dis.parameters(), lr=0.0005)
+    src = torch.randn(64,1,32,8064).cuda()
+    trg = torch.randn(64,1,32,8064).cuda()
+    optim_dis.zero_grad()
+    for p in dis.parameters() :
+        p.requires_grad = True
+    feat_s = fe(src)
+    feat_t = fe(trg)
+    dc_s = dis(feat_s)
+    dc_t = dis(feat_t)
+    epsil = torch.rand(1).item()
+    feat = epsil*feat_s + (1-epsil)*feat_t
+    dc = dis(feat)
+    grad = torch.autograd.grad(outputs=dc, inputs=feat, grad_outputs=torch.ones(dc.size()).cuda(), create_graph=True, retain_graph=True)[0]
+    grad_norm = torch.sqrt(torch.sum(grad**2, dim=1)+1e-12)
+    grad_loss = ((grad_norm-1)**2).mean()
+    
+    print(grad_loss)
+    print(Wasserstein_Loss(dc_s, dc_t))
+    print(-Wasserstein_Loss(dc_s, dc_t)+10*grad_loss)
+    loss = -Wasserstein_Loss(dc_s, dc_t)+10*grad_loss
+    loss.backward()
+    optim_dis.step()
+    '''
