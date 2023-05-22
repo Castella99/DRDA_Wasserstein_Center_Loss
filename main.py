@@ -46,8 +46,10 @@ if hyper_mu >= 1 :
 if hyper_lambda >= 1 :
     hyper_lambda = int(hyper_lambda)
 
+instance = f"e2000_p500_b64_l{hyper_lambda}_m{hyper_mu}_n5_k5_t160"
+
 os.getcwd()
-output_dir = f"./output_{hyper_lambda}_{hyper_mu}/result_cv_5fold_{test_size}"
+output_dir = f"./output_{instance}"
 
 if os.path.isdir(output_dir) :
     print("Directory exists")
