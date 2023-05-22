@@ -30,21 +30,21 @@ def train_val(source_dataloader, target_dataloader, val_dataloader, label, nb_ep
     # cuda
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     print("device: ", device)
-
+    
     #model
-    dis = Discriminator().to(device)
-    fe = FE().to(device)
-    classifier = Classifier(cls_num=3).to(device)
-    centerloss = CenterLoss(feat_dim=15960, num_classes=3).cuda()
+    dis = Discriminator().cuda()
+    fe = FE().cuda()
+    classifier = Classifier(cls_num=3).cuda()
+    centerloss = CenterLoss(feat_dim=64, num_classes=3).cuda()
 
     #optim
-    optimizer_dis = optim.Adam(dis.parameters(),lr=0.0001,betas=(0,0.9))
-    optimizer_fe = optim.Adam(fe.parameters(),lr=0.0001, betas=(0,0.9))
-    optimizer_cls = optim.Adam(classifier.parameters(),lr=0.0001, betas=(0,0.9))
+    optimizer_dis = optim.Adam(dis.parameters(),lr=0.0001,betas=(0.5,0.999))
+    optimizer_fe = optim.Adam(fe.parameters(),lr=0.0001, betas=(0.5,0.999))
+    optimizer_cls = optim.Adam(classifier.parameters(),lr=0.0001)
     optimizer_centerloss = optim.SGD(centerloss.parameters(), lr=0.5)
 
     #cls_loss
-    cls_loss = nn.CrossEntropyLoss().to(device)
+    cls_loss = nn.CrossEntropyLoss().cuda()
 
     # train WGAN
     accuracy_s = []
@@ -53,11 +53,13 @@ def train_val(source_dataloader, target_dataloader, val_dataloader, label, nb_ep
     val_loss_list = []
 
     best_loss = 10000000
+    best_acc = 0.0
     best_f1 = 0.0
+    best_acc_f1 = 0.0
     limit_check = 0
     val_loss = 0
     best_val_epoch = 1
-    best_f1_epoch = 1
+    best_acc_f1_epoch = 1
 
     torch.autograd.set_detect_anomaly(True)
 
@@ -114,11 +116,12 @@ def train_val(source_dataloader, target_dataloader, val_dataloader, label, nb_ep
                 feat.requires_grad_()
                 dc = dis(feat)
                 
-                wd_loss = Wasserstein_Loss(dc_s, dc_t)
+                wd_loss = torch.mean(dc_t) - torch.mean(dc_s)
                 grad = torch.autograd.grad(outputs=dc, inputs=feat, grad_outputs=torch.ones(dc.size()).cuda(), create_graph=True, retain_graph=True)[0]
-                grad_norm = torch.sqrt(torch.sum(grad**2, dim=1)+1e-12)
-                grad_pt = ((grad_norm-1)**2).mean()
-                wd_grad_loss = -wd_loss + hyper_lambda*grad_pt
+                grad = grad.view(grad.shape[0], -1)
+                grad_norm = grad.norm(2, dim=1)
+                grad_pt = torch.mean((grad_norm-1)**2)
+                wd_grad_loss = wd_loss + hyper_lambda*grad_pt
                 wd_grad_loss.backward()
                 optimizer_dis.step()
 
@@ -156,7 +159,7 @@ def train_val(source_dataloader, target_dataloader, val_dataloader, label, nb_ep
             pred_s = classifier(feat_s)
             dc_t = dis(feat_t)
             dc_s = dis(feat_s)
-            wd_loss = Wasserstein_Loss(dc_s, dc_t)
+            wd_loss = torch.mean(dc_s) - torch.mean(dc_t)
             cls_loss_source = cls_loss(pred_s, y_source-1)
             center_loss = centerloss(feat_t, y_target)
             fe_loss = cls_loss_source + hyper_mu*wd_loss + 0.5*center_loss
@@ -216,6 +219,7 @@ def train_val(source_dataloader, target_dataloader, val_dataloader, label, nb_ep
             temp += 1
         
         f1 = f1_score(y_val_full, pred_val_full, average='weighted', zero_division=0)
+        acc = temp_accuracy_val.item()/temp
 
         val_total_loss = val_loss / len(val_dataloader.dataset)
         val_loss_list.append(val_total_loss)
@@ -227,7 +231,7 @@ def train_val(source_dataloader, target_dataloader, val_dataloader, label, nb_ep
         print()
         print(classification_report(y_val_full, pred_val_full, labels=[1,2,3], zero_division=0))
 
-        accuracy_val.append(temp_accuracy_val.item()/temp)
+        accuracy_val.append(acc)
         epochs = epochs + 1
         if val_total_loss > best_loss:
             limit_check += 1
@@ -237,29 +241,45 @@ def train_val(source_dataloader, target_dataloader, val_dataloader, label, nb_ep
             best_loss = val_total_loss
             best_val_epoch = epochs
             limit_check = 0
-        if f1 > best_f1 :
+        if  (acc+f1)/2 > best_acc_f1 :
+            best_acc_f1 = (acc+f1)/2
+            best_acc = acc
             best_f1 = f1
             best_fe_wts = copy.deepcopy(fe.state_dict())
             best_dis_wts = copy.deepcopy(dis.state_dict())
             best_cls_wts = copy.deepcopy(classifier.state_dict())
-            best_f1_epoch = epochs            
+            best_acc_f1_epoch = epochs 
         
         print(f"best_val_loss : {best_loss}, epoch : {best_val_epoch}")
-        print(f"best_f1_score : {best_f1}. epoch : {best_f1_epoch}")
+        print(f"best_acc_score : {best_acc}, epoch : {best_acc_f1_epoch}")
+        print(f"best_f1_score : {best_f1}, epoch : {best_acc_f1_epoch}\n")
 
     print("\naccuracy_t :", sum(accuracy_t)/len(accuracy_t))
     print("accuracy_s :", sum(accuracy_s)/len(accuracy_s))
     print("accuracy_val :", sum(accuracy_val)/len(accuracy_val))
     print(f"best_val_loss : {best_loss}, epoch : {best_val_epoch}")
-    print(f"best_f1_score : {best_f1}. epoch : {best_f1_epoch}")
+    print(f"best_acc_score : {best_acc}, epoch : {best_acc_f1_epoch}")
+    print(f"best_f1_score : {best_f1}, epoch : {best_acc_f1_epoch}")
 
-    plt.figure()
-    plt.title('val_loss')
-    plt.plot(np.arange(1, epochs+1, 1), val_loss_list, label='val')
-    plt.xlabel('Epoch')
-    plt.ylabel('loss')
-    plt.savefig(output_dir+f'/loss/Val_Loss_{label}_{fold}fold.png')
-    plt.close()
+    try :
+        plt.figure()
+        plt.title('val_loss')
+        plt.plot(np.arange(1, epochs+1, 1), val_loss_list, label='val')
+        plt.xlabel('Epoch')
+        plt.ylabel('loss')
+        plt.savefig(output_dir+f'/loss/Val_Loss_{label}_{fold}fold.png')
+        plt.close()
+    except Exception as e :
+        print(e)
+    finally :
+        pass
+    
+    del x_source
+    del x_target
+    del x_val
+    del y_source
+    del y_target
+    del y_val
     
     fe.load_state_dict(best_fe_wts)
     dis.load_state_dict(best_dis_wts)
@@ -280,12 +300,17 @@ def test_model(fe, classifier, dataloader, label, output_dir, fold=0) :
     cls_y = torch.cat(cls_y, dim=0).numpy()
     cm = confusion_matrix(true_y, pred_y)
     
-    plt.figure()
-    dis_cm = ConfusionMatrixDisplay(confusion_matrix=cm)
-    dis_cm.plot(cmap=plt.cm.Blues)
-    plt.title('Confusion Matrix')
-    plt.savefig(output_dir+f'/cm/Test_Confusion_Matrix_{label}_{fold}fold.png')
-    plt.close()
+    try :
+        plt.figure()
+        dis_cm = ConfusionMatrixDisplay(confusion_matrix=cm)
+        dis_cm.plot(cmap=plt.cm.Blues)
+        plt.title('Confusion Matrix')
+        plt.savefig(output_dir+f'/cm/Test_Confusion_Matrix_{label}_{fold}fold.png')
+        plt.close()
+    except Exception as e :
+        print(e)
+    finally :
+        pass
     
     print()
     print("-"*50)
@@ -300,4 +325,7 @@ def test_model(fe, classifier, dataloader, label, output_dir, fold=0) :
     print(cm, '\n')
     print(classification_report(true_y, pred_y, labels=[1,2,3], zero_division=0))
 
+    del x
+    del y
+    
     return accuracy, precision, recall, f1, roauc

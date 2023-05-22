@@ -1,4 +1,6 @@
 __pycache__/
 *.pyc
-output/
+output*/
 *.ipynb
+img/
+*.csv

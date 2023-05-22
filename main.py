@@ -1,8 +1,7 @@
 import torch 
 import matplotlib.pyplot as plt
 from tqdm import tqdm
-import os
-from scipy import io
+from loadData import loadData
 import numpy as np
 from train_val_model import train_val, make_dataloader, test_model
 from sklearn.model_selection import train_test_split, StratifiedKFold
@@ -42,8 +41,19 @@ n_critics = args.n
 k_fold = args.k_fold
 test_size = args.test
 
+if hyper_mu >= 1 :
+    hyper_mu = int(hyper_mu)
+if hyper_lambda >= 1 :
+    hyper_lambda = int(hyper_lambda)
+
 os.getcwd()
-output_dir = f"./output/result_cv_5fold_{hyper_mu}_{test_size}"
+output_dir = f"./output_{hyper_lambda}_{hyper_mu}/result_cv_5fold_{test_size}"
+
+if os.path.isdir(output_dir) :
+    print("Directory exists")
+else :
+    os.mkdir(output_dir)
+    
 try :
     os.mkdir(output_dir+"/loss")
     os.mkdir(output_dir+"/cm")
@@ -54,63 +64,19 @@ finally :
 
 # path
 path = r'./../data_preprocessed_matlab/'  # 경로는 저장 파일 경로
-file_list = os.listdir(path)
 
-print("-"*50)
-print("data path check")
-for i in file_list:    # 확인
-    print(i, end=' ')
+dataset = loadData(path)
 
-Data = []
-VAL = []
-ARO = []
-
-for i in tqdm(file_list, desc="read data"): 
-    mat_file = io.loadmat(path+i)
-    data = mat_file['data']
-    labels = np.array(mat_file['labels'])
-    val = labels.T[0]
-    val = np.where(val<4, 1, val)
-    val = np.where(np.logical_and(val>=4, val<7), 2, val)
-    val = np.where(val>=7, 3, val)
-    val = val.astype(np.int8)
-    
-    aro = labels.T[1]
-    
-    aro = np.where(aro<4, 1, aro)
-    aro = np.where(np.logical_and(aro>=4, aro<7), 2, aro)
-    aro = np.where(aro>=7, 3, aro)
-    aro = aro.astype(np.int8)
-    
-    Data.append(data)
-    VAL.append(val)
-    ARO.append(aro)
-        
-Data = np.concatenate(Data,axis=0)   # 밑으로 쌓아서 하나로 만듬
-VAL = np.concatenate(VAL,axis=0)
-ARO = np.concatenate(ARO,axis=0)
-print(Data.shape, VAL.shape, ARO.shape)
-
-# eeg preprocessing
-
-eeg_data = []
-peripheral_data = []
-
-for i in tqdm(range(len(Data)), desc="preprocess channel"):
-    for j in range (40): 
-        if(j < 32): # get channels 1 to 32
-            eeg_data.append(Data[i][j])
-        else:
-            peripheral_data.append(Data[i][j])
-
-# set data type, shape
-eeg_data = np.reshape(eeg_data, (len(Data),1,32, 8064))
+eeg_data, VAL, ARO = dataset.MakeDataset()
+eeg_data = dataset.signalFilter(eeg_data).reshape(-1,1,32,8064)
+eeg_data = dataset.signalProcess(eeg_data).reshape(-1,1,32,8064)
 eeg_data = eeg_data.astype('float32')
+
 eeg_data32 = torch.from_numpy(eeg_data)
 VAL = (torch.from_numpy(VAL)).type(torch.long)
 ARO = (torch.from_numpy(ARO)).type(torch.long)
 
-test_ratio = test_size / len(Data)
+test_ratio = test_size / len(eeg_data)
 
 kf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
 x_train, x_test, y_train, y_test = train_test_split(eeg_data32, VAL, test_size=test_ratio, random_state=42, shuffle=True, stratify=VAL)

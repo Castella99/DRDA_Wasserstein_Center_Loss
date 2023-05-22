@@ -8,14 +8,15 @@ class FE(nn.Module):
             nn.Conv2d(1,30,kernel_size=(1,25)),
             nn.Conv2d(30,30, kernel_size=(channel_size, 1)),
             nn.AvgPool2d(kernel_size=(1, 75), stride=15),
-            nn.Flatten()
+            nn.Flatten(),
+            nn.Linear(15960, 64)
         )
         
     def forward(self, x):
         return self.conv(x)
 
 class Discriminator(nn.Module):
-    def __init__(self, input_size=15960):
+    def __init__(self, input_size=64):
         super().__init__()
         self.dis = nn.Sequential(
             nn.Linear(input_size, 64),
@@ -32,7 +33,7 @@ class Discriminator(nn.Module):
         return self.dis(x)
 
 class Classifier(nn.Module) :
-    def __init__(self, input_size=15960, cls_num=9) :
+    def __init__(self, input_size=64, cls_num=3) :
         super().__init__()
         self.fc = nn.Sequential(
             nn.Linear(input_size, 64),
@@ -76,7 +77,7 @@ class CenterLoss(nn.Module):
         return loss
     
 if __name__ == '__main__' :
-    '''
+    
     fe = FE().cuda()
     dis = Discriminator().cuda()
     optim_dis = torch.optim.Adam(dis.parameters(), lr=0.0005)
@@ -102,4 +103,4 @@ if __name__ == '__main__' :
     loss = -Wasserstein_Loss(dc_s, dc_t)+10*grad_loss
     loss.backward()
     optim_dis.step()
-    '''
+    
