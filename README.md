@@ -11,7 +11,7 @@
 
 ## Model
 ### Wasserstein-DRDA
-EEG MI를 분류하는 [DRDA](https://ieeexplore.ieee.org/document/9154600) 모델의 discriminator를 Wasserstein Loss로 대체한 모델
+EEG를 통해 Motor Imagery를 분류하는 [DRDA](https://ieeexplore.ieee.org/document/9154600) 모델의 discriminator를 Wasserstein Loss로 대체한 모델
 Source Domain과 Target Domain의 괴리를 줄이는 방향으로 특징 추출기를 학습시켜 Domain Adaptation을 적용
 
 ## Result
