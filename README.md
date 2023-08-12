@@ -3,7 +3,7 @@
 ![Model Overview](W-DRDA_model_overview.jpeg)
 
 ## Abstract
-최근 EEG 신호는 감정 분석, 질병 진단, BCI 등 다양한 분야에 사용되고 있다. 심층 학습이 발전함에 따라 EEG 신호를 딥러닝 모델에 적용하여 분석하는 시도가 늘어나고 있는 가운데, 본 논문에서는 EEG 신호를 와서스테인 거리 손실(Wasserstein distance loss)을 사용한 심층 표현(deep representation) 기반 의 도메인 적응(domain adaptation) 기법을 통한 감정 분류 방법을 제안한다. EEG 신호의 비정상성과 도 메인간 차이로 인한 분류 성능 하락 문제를 해결하기 위해 와서스테인 손실 기법을 적용한다. 이 기법은 소스 도메인과 타겟 도메인 간의 괴리를 줄여 EEG 신호에 대해 더 강건한 모델 학습을 가능하게 한다. 실험 결과와 함께 제안한 방법의 유효성을 증명한다.
+최근 EEG 신호는 감정 분석, 질병 진단, BCI 등 다양한 분야에 사용되고 있다. 심층 학습이 발전함에 따라 EEG 신호를 딥러닝 모델에 적용하여 분석하는 시도가 늘어나고 있는 가운데, 본 논문에서는 EEG 신호를 와서스테인 거리 손실(Wasserstein distance loss)을 사용한 심층 표현(deep representation) 기반의 도메인 적응(domain adaptation) 기법을 통한 감정 분류 방법을 제안한다. EEG 신호의 비정상성과 도메인간 차이로 인한 분류 성능 하락 문제를 해결하기 위해 와서스테인 손실 기법을 적용한다. 이 기법은 소스 도메인과 타겟 도메인 간의 괴리를 줄여 EEG 신호에 대해 더 강건한 모델 학습을 가능하게 한다. 실험 결과와 함께 제안한 방법의 유효성을 증명한다.
 
 ## Dataset
 뇌파 감정 데이터셋 [DEAP](https://www.eecs.qmul.ac.uk/mmv/datasets/deap) 사용
