@@ -41,4 +41,14 @@ loadData.py : 데이터 (DEAP)를 불러오고 데이터 전처리를 수행
 train_val_model.py : 학습 및 검증, 테스트에 필요한 함수 내장
 
 ## 실행 방법
-sh main.sh
+sh main.sh (Linux bash)\
+python -u main.py -e={Epochs} -p={Early Stopping Patience} -b={Batch Size} -l={Hyperparameter lambda} -m={Hyperparameter mu} -n={Hyperparameter n} -k={fold} -t={test size} (Otherwise)
+
+## 환경 구성
+python 3.8.10\
+numpy 1.24.2\
+pandas 2.0.0\
+scikit-learn 1.2.2\
+scipy 1.10.1
+torch 1.7.1
+
