@@ -1,6 +1,6 @@
-# KCC 2023 EEG 분류를 위한 와서스테인 거리 손실을 사용한 심층 표현 기반의 도메인 적응 기법
+# 2023 한국컴퓨터종합학술대회 [EEG 분류를 위한 와서스테인 거리 손실을 사용한 심층 표현 기반의 도메인 적응 기법]
 
-
+![Model Overview](W-DRDA_model_overview.jpeg)
 
 파일 구성 : main.sh / main.py / model.py / loadData.py / train_val_model.py
 
@@ -13,4 +13,5 @@ model.py : 모델 파이썬 코드
 loadData.py : 데이터 (DEAP)를 불러오고 데이터 전처리를 수행
 
 train_val_model.py : 학습 및 검증, 테스트에 필요한 함수 내장
+
 
