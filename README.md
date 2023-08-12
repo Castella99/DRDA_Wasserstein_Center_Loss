@@ -1,5 +1,5 @@
 # 2023 한국컴퓨터종합학술대회 [EEG 분류를 위한 와서스테인 거리 손실을 사용한 심층 표현 기반의 도메인 적응 기법]
-
+### [ Deep Representation-Based Domain Adaptation Using Wasserstein Loss For Classification of EEG ] KCC 2023
 ![Model Overview](W-DRDA_model_overview.jpeg)
 
 ## Abstract
